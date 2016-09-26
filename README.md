@@ -2,8 +2,8 @@
 
 ## なにこれ？
 
-コマンドの実行結果とかをstdinに流すとSlackにsnippet形式で投げてくれる
-ICTSCとかISUCON用に作ったやつ
+コマンドの実行結果とかをstdinに流すとSlackにsnippet形式で投げてくれる  
+ICTSCとかISUCON用に作ったやつ  
 
 ## Install
 
@@ -48,9 +48,9 @@ command | ./slack-tools -token="xxxx-xxxxxxxxx-xxxx" -channels="random"
 
 ### いちいちオプションでtokenとかchannelsとかを指定するのが面倒くさい
 
-tokenとかchannelsをバイナリに埋め込める
-`main.go` 内、15行目ぐらいのvar()で定義されている変数にデフォルトで使用したい値を突っ込めばok(オプションで上書き可能)
-サーバ上に実行バイナリを配置して使う場合にオプションを指定無くて済むので楽
+tokenとかchannelsをバイナリに埋め込める  
+`main.go` 内、15行目ぐらいのvar()で定義されている変数にデフォルトで使用したい値を突っ込めばok(オプションで上書き可能)  
+サーバ上に実行バイナリを配置して使う場合にオプションを指定無くて済むので楽  
 
 ## ToDo
 * 環境変数でtokenやchannelsを設定できるようにする
