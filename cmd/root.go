@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/nlopes/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -38,4 +39,8 @@ func initConfig() {
 	}
 
 	viper.BindEnv("slack.token", "ST_SLACK_TOKEN")
+}
+
+func newSlackApi() *slack.Client {
+	return slack.New(viper.GetString("slack.token"))
 }

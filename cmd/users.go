@@ -1,13 +1,9 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/antonholmquist/jason"
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"net/http"
-	"net/url"
+	"log"
 	"os"
 	"strconv"
 )
@@ -19,7 +15,7 @@ func init() {
 func newUsersCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
-		Short: "users api",
+		Short: "users",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
@@ -35,7 +31,7 @@ func newUsersCmd() *cobra.Command {
 func newUsersListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "users.list api",
+		Short: "users list",
 		Run:   runUsersListCmd,
 	}
 
@@ -43,21 +39,11 @@ func newUsersListCmd() *cobra.Command {
 }
 
 func runUsersListCmd(cmd *cobra.Command, args []string) {
-	param := url.Values{}
-	param.Add("token", viper.GetString("slack.token"))
+	api := newSlackApi()
+	users, err := api.GetUsers()
 
-	res, err := http.PostForm("https://slack.com/api/users.list", param)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP Error: %s\n", err)
-		os.Exit(-1)
-	}
-	jsonBody, err := jason.NewObjectFromReader(res.Body)
-
-	ok, _ := jsonBody.GetBoolean("ok")
-	if ok == false {
-		e, _ := jsonBody.GetString("error")
-		fmt.Fprintf(os.Stderr, "API Error: %s\n", e)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -71,25 +57,15 @@ func runUsersListCmd(cmd *cobra.Command, args []string) {
 		"is owner",
 	})
 
-	members, _ := jsonBody.GetObjectArray("members")
-
-	for _, value := range members {
-		id, _ := value.GetString("id")
-		name, _ := value.GetString("name")
-		real_name, _ := value.GetString("profile", "real_name")
-		email, _ := value.GetString("profile", "email")
-		skype, _ := value.GetString("profile", "skype")
-		is_admin, _ := value.GetBoolean("is_admin")
-		is_owner, _ := value.GetBoolean("is_admin")
-
+	for _, user := range users {
 		table.Append([]string{
-			id,
-			name,
-			real_name,
-			email,
-			skype,
-			strconv.FormatBool(is_admin),
-			strconv.FormatBool(is_owner),
+			user.ID,
+			user.Name,
+			user.RealName,
+			user.Profile.Email,
+			user.Profile.Skype,
+			strconv.FormatBool(user.IsAdmin),
+			strconv.FormatBool(user.IsOwner),
 		})
 	}
 
