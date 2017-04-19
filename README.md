@@ -23,7 +23,3 @@ $ slack-tools --help
 slack:
   token: xoxp-xxxxxxxxxxxxxxxxxxxxxxxx
 ```
-
-## ToDo
-- 冗長すぎなので直す
-- cmdとslackAPI叩きに行っている部分を分ける
