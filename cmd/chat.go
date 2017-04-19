@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/antonholmquist/jason"
+	"github.com/nlopes/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 )
 
 func init() {
@@ -36,7 +32,7 @@ func newChatPostMessageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post",
 		Short: "chat.postMessage",
-		Run:   runChatPostMessageCmd,
+		RunE:  runChatPostMessageCmd,
 	}
 
 	flags := cmd.Flags()
@@ -47,7 +43,7 @@ func newChatPostMessageCmd() *cobra.Command {
 	return cmd
 }
 
-func runChatPostMessageCmd(cmd *cobra.Command, args []string) {
+func runChatPostMessageCmd(cmd *cobra.Command, args []string) error {
 	Channel := "general"
 	Text := ""
 
@@ -58,31 +54,18 @@ func runChatPostMessageCmd(cmd *cobra.Command, args []string) {
 	if len(args) == 1 {
 		b, err := ioutil.ReadAll(os.Stdin)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "stdin read error: %s", err)
-			os.Exit(1)
+			return err
 		}
 		Text = string(b)
 	} else {
 		Text = args[1]
 	}
 
-	param := url.Values{}
-	param.Add("token", viper.GetString("slack.token"))
-	param.Add("text", Text)
-	param.Add("channel", Channel)
-	param.Add("as_user", strconv.FormatBool(viper.GetBool("slack.chat.postMessage.asUser")))
+	param := slack.NewPostMessageParameters()
+	param.AsUser = viper.GetBool("slack.chat.postMessage.asUser")
 
-	resp, err := http.PostForm("https://slack.com/api/chat.postMessage", param)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP Error: %s\n", err)
-		os.Exit(1)
-	}
-	jsonBody, _ := jason.NewObjectFromReader(resp.Body)
+	api := newSlackApi()
+	_, _, err := api.PostMessage(Channel, Text, param)
 
-	ok, _ := jsonBody.GetBoolean("ok")
-	if ok == false {
-		e, _ := jsonBody.GetString("error")
-		fmt.Fprintf(os.Stderr, "API Error: %s\n", e)
-		os.Exit(1)
-	}
+	return err
 }
