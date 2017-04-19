@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"strconv"
 )
@@ -32,18 +31,18 @@ func newUsersListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "users list",
-		Run:   runUsersListCmd,
+		RunE:  runUsersListCmd,
 	}
 
 	return cmd
 }
 
-func runUsersListCmd(cmd *cobra.Command, args []string) {
+func runUsersListCmd(cmd *cobra.Command, args []string) error {
 	api := newSlackApi()
 	users, err := api.GetUsers()
 
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -70,4 +69,6 @@ func runUsersListCmd(cmd *cobra.Command, args []string) {
 	}
 
 	table.Render()
+
+	return err
 }
