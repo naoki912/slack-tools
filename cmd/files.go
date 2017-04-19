@@ -1,13 +1,10 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/antonholmquist/jason"
+	"github.com/nlopes/slack"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 )
 
@@ -35,11 +32,11 @@ func newFilesUploadCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload",
 		Short: "files.upload api",
-		Run:   runFilesUploadCmd,
+		RunE:  runFilesUploadCmd,
 	}
 
 	flags := cmd.Flags()
-	flags.StringP("channels", "c", "", "channels")
+	flags.StringSliceP("channels", "c", []string{""}, "channels")
 	flags.StringP("filename", "f", "", "filename")
 	flags.StringP("type", "t", "", "file type")
 
@@ -50,31 +47,20 @@ func newFilesUploadCmd() *cobra.Command {
 	return cmd
 }
 
-func runFilesUploadCmd(cmd *cobra.Command, args []string) {
+func runFilesUploadCmd(cmd *cobra.Command, args []string) error {
+	api := newSlackApi()
+	param := slack.FileUploadParameters{}
+
 	b, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "stdin read error: %s", err)
-		os.Exit(1)
+		return err
 	}
-	Content := string(b)
 
-	param := url.Values{}
-	param.Add("content", Content)
-	param.Add("token", viper.GetString("slack.token"))
-	param.Add("channels", viper.GetString("slack.files.upload.channels"))
-	param.Add("filename", viper.GetString("slack.files.upload.type"))
+	param.Content = string(b)
+	param.Channels = viper.GetStringSlice("slack.files.upload.channels")
+	param.Filetype = viper.GetString("slack.files.upload.type")
 
-	resp, err := http.PostForm("https://slack.com/api/files.upload", param)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP Error: %s\n", err)
-		os.Exit(1)
-	}
-	jsonBody, _ := jason.NewObjectFromReader(resp.Body)
+	_, err = api.UploadFile(param)
 
-	ok, _ := jsonBody.GetBoolean("ok")
-	if ok == false {
-		e, _ := jsonBody.GetString("error")
-		fmt.Fprintf(os.Stderr, "API Error: %s\n", e)
-		os.Exit(1)
-	}
+	return err
 }
