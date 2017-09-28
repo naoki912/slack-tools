@@ -1,16 +1,13 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/antonholmquist/jason"
+	"log"
+	"os"
+	"strconv"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"net/http"
-	"net/url"
-	"os"
-	"strconv"
-	"strings"
 )
 
 func init() {
@@ -41,25 +38,22 @@ func newChannelsListCmd() *cobra.Command {
 		Run:   runChannelsListCmd,
 	}
 
+	flags := cmd.Flags()
+	flags.BoolP("exclude-archived", "", false, "excludeArchived")
+
+	viper.BindPFlag("slack.channels.list.exclude-archived", flags.Lookup("exclude-archived"))
+
 	return cmd
 }
 
 func runChannelsListCmd(cmd *cobra.Command, args []string) {
-	param := url.Values{}
-	param.Add("token", viper.GetString("slack.token"))
 
-	res, err := http.PostForm("https://slack.com/api/channels.list", param)
+	api := newSlackApi()
+
+	channels, err := api.GetChannels(viper.GetBool("slack.channels.list.exclude-archived"))
+
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP Error: %s\n", err)
-		os.Exit(1)
-	}
-	jsonBody, _ := jason.NewObjectFromReader(res.Body)
-
-	ok, _ := jsonBody.GetBoolean("ok")
-	if ok == false {
-		e, _ := jsonBody.GetString("error")
-		fmt.Fprintf(os.Stderr, "API Error: %s\n", e)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -71,21 +65,19 @@ func runChannelsListCmd(cmd *cobra.Command, args []string) {
 		"num_members",
 	})
 
-	channels, _ := jsonBody.GetObjectArray("channels")
-
-	for _, value := range channels {
-		id, _ := value.GetString("id")
-		name, _ := value.GetString("name")
-		is_archived, _ := value.GetBoolean("is_archived")
-		is_member, _ := value.GetBoolean("is_member")
-		num_members, _ := value.GetInt64("num_members")
+	for _, channel := range channels {
+		id := channel.ID
+		name := channel.Name
+		isArchived := channel.IsArchived
+		isMember := channel.IsMember
+		numMembers := len(channel.Members)
 
 		table.Append([]string{
 			id,
 			name,
-			strconv.FormatBool(is_archived),
-			strconv.FormatBool(is_member),
-			strconv.FormatInt(num_members, 10),
+			strconv.FormatBool(isArchived),
+			strconv.FormatBool(isMember),
+			strconv.Itoa(numMembers),
 		})
 	}
 
@@ -103,25 +95,18 @@ func newChannelsShowCmd() *cobra.Command {
 }
 
 func runChannelsShowCmd(cmd *cobra.Command, args []string) {
-	param := url.Values{}
-	param.Add("token", viper.GetString("slack.token"))
+
+	var channelName string
 
 	if len(args) > 0 {
-		param.Add("channel", args[0])
+		channelName = args[0]
 	}
 
-	res, err := http.PostForm("https://slack.com/api/channels.info", param)
+	api := newSlackApi()
+
+	channel, err := api.GetChannelInfo(channelName)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "HTTP Error: %s\n", err)
-		os.Exit(1)
-	}
-	jsonBody, _ := jason.NewObjectFromReader(res.Body)
-
-	ok, _ := jsonBody.GetBoolean("ok")
-	if ok == false {
-		e, _ := jsonBody.GetString("error")
-		fmt.Fprintf(os.Stderr, "API Error: %s\n", e)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
@@ -130,44 +115,58 @@ func runChannelsShowCmd(cmd *cobra.Command, args []string) {
 		"value",
 	})
 
-	channel, _ := jsonBody.GetObject("channel")
-
-	for property, value := range channel.Map() {
-		var stringValue string
-
-		switch property {
-
-		case "created", "unread_count", "unread_count_display":
-			i, _ := value.Int64()
-			stringValue = strconv.FormatInt(i, 10)
-			fmt.Fprintf(os.Stdout, "%v", stringValue)
-
-		case "is_archived", "is_general", "is_member", "is_starred":
-			b, _ := value.Boolean()
-			stringValue = strconv.FormatBool(b)
-
-		case "members":
-			var members []string
-			a, _ := value.Array()
-			for _, member := range a {
-				m, _ := member.String()
-				members = append(members, m)
-			}
-			stringValue = strings.Join(members[:], ", ")
-
-		case "topic", "purpose", "latest":
-			a, _ := value.Object()
-			stringValue = a.String()
-
-		default:
-			stringValue, _ = value.String()
-		}
-
-		table.Append([]string{
-			property,
-			stringValue,
-		})
-	}
+	table.Append([]string{
+		"ID",
+		channel.ID,
+	})
+	table.Append([]string{
+		"Name",
+		channel.Name,
+	})
+	table.Append([]string{
+		"Created",
+		channel.Created.String(),
+	})
+	table.Append([]string{
+		"Creator",
+		channel.Creator,
+	})
+	table.Append([]string{
+		"IsArchived",
+		strconv.FormatBool(channel.IsArchived),
+	})
+	table.Append([]string{
+		"IsMember",
+		strconv.FormatBool(channel.IsMember),
+	})
+	table.Append([]string{
+		"NumMembers",
+		strconv.Itoa(len(channel.Members)),
+	})
+	table.Append([]string{
+		"Topic:Value",
+		channel.Topic.Value,
+	})
+	table.Append([]string{
+		"Topic:Creator",
+		channel.Topic.Creator,
+	})
+	table.Append([]string{
+		"Topic:LastSet",
+		channel.Topic.LastSet.String(),
+	})
+	table.Append([]string{
+		"Purpose:Value",
+		channel.Purpose.Value,
+	})
+	table.Append([]string{
+		"Purpose:Creator",
+		channel.Purpose.Creator,
+	})
+	table.Append([]string{
+		"Purpose:LastSet",
+		channel.Purpose.LastSet.String(),
+	})
 
 	table.Render()
 }
