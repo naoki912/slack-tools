@@ -97,6 +97,7 @@ func newChannelsShowCmd() *cobra.Command {
 func runChannelsShowCmd(cmd *cobra.Command, args []string) {
 
 	var channelName string
+	var channelId string
 
 	if len(args) > 0 {
 		channelName = args[0]
@@ -104,7 +105,19 @@ func runChannelsShowCmd(cmd *cobra.Command, args []string) {
 
 	api := newSlackApi()
 
-	channel, err := api.GetChannelInfo(channelName)
+	channels, err := api.GetChannels(true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for i := range channels {
+		if channels[i].Name == channelName {
+			channelId = channels[i].ID
+			break
+		}
+	}
+
+	channel, err := api.GetChannelInfo(channelId)
 	if err != nil {
 		log.Fatal(err)
 	}
